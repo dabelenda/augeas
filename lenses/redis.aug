@@ -55,6 +55,7 @@ redis-server.
 let standard_entry =
      let reserved_k = "save" | "rename-command" | "slaveof"
                     | "bind" | "client-output-buffer-limit"
+                    | "sentinel"
   in let entry_noempty = [ indent . key (k - reserved_k) . del_ws_spc
                          . Quote.do_quote_opt_nil (store v) . eol ]
   in let entry_empty = [ indent . key (k - reserved_k) . del_ws_spc
@@ -81,6 +82,28 @@ port number. The same rules as standard_entry apply for quoting, comments and
 whitespaces.
 *)
 let slaveof_entry = [ indent . key slaveof . del_ws_spc . ip . del_ws_spc . port . eol ]
+
+let sentinel = /sentinel/
+(*
+*)
+let sentinel_global_entry =
+     let global_setup  = /(deny-scripts-reconfig)|(current-epoch)/
+  in key global_setup . del_ws_spc. ( store ( Rx.word | Rx.integer ))
+
+let sentinel_cluster_setup =
+     let cluster_setup = /(config-epoch)|(leader-epoch)/
+  in key cluster_setup . del_ws_spc . [ ( key Rx.word ) . del_ws_spc . ( store Rx.integer ) ]
+
+let sentinel_cluster_instance_setup = 
+     let cluster_instance_setup = /(monitor)|(known-replica)/
+  in key cluster_instance_setup . del_ws_spc . [ key Rx.word . del_ws_spc . [ key Rx.ip . del_ws_spc . [ label "port" . (store Rx.integer) ] . del_ws_spc . [ label "quorum" . (store Rx.integer)] ] ]
+
+let sentinel_clustering =
+     let sentinel_clustering = /(known-sentinel)/
+  in key sentinel_clustering . del_ws_spc . [ key Rx.word . del_ws_spc . [ key Rx.ip . del_ws_spc . [label "port" . (store Rx.integer) ] . del_ws_spc . [ label "id" . (store Rx.word) ]]]
+
+let sentinel_entry =
+  indent . [ key sentinel . del_ws_spc . [ sentinel_global_entry | sentinel_cluster_setup | sentinel_cluster_instance_setup | sentinel_clustering ] ] . del_ws_spc . eol
 
 (* View: bind_entry
 The "bind" entry can be passed one or several ip addresses. A bind
@@ -122,6 +145,7 @@ let entry = standard_entry
 	  | renamecmd_entry
 	  | slaveof_entry
 	  | bind_entry
+    | sentinel_entry
 	  | client_output_buffer_limit_entry
 
 (* View: lns
